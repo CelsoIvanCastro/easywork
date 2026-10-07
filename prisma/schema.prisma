@@ -1,0 +1,1226 @@
+// Modelo de datos de EasyWork. Ver docs/ARQUITECTURA.md.
+// Regla: toda relación entre entidades de empresa usa FK compuesta (companyId, id)
+// para que la base impida referencias entre empresas distintas.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ───────────── Identidad (tablas de Better Auth) ─────────────
+
+model User {
+  id               String   @id
+  name             String
+  lastName         String   @default("")
+  phone            String   @default("")
+  email            String   @unique
+  emailVerified    Boolean  @default(false)
+  image            String?
+  twoFactorEnabled Boolean? @default(false)
+  // Versión de términos y privacidad aceptada al registrarse (la fija el servidor).
+  termsVersion     String?
+  termsAcceptedAt  DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  sessions     Session[]
+  accounts     Account[]
+  twoFactors   TwoFactor[]
+  memberships  Membership[]
+  ownedCompany Company[]     @relation("CompanyOwner")
+  joinRequests JoinRequest[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String    @id
+  expiresAt DateTime
+  token     String    @unique
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  // Reautenticación reciente para acciones de alto riesgo.
+  reauthAt  DateTime?
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+model TwoFactor {
+  id                      String    @id
+  secret                  String
+  backupCodes             String
+  userId                  String
+  verified                Boolean?  @default(true)
+  failedVerificationCount Int?      @default(0)
+  lockedUntil             DateTime?
+  user                    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([secret])
+  @@index([userId])
+  @@map("two_factor")
+}
+
+// Usado por Better Auth y por los límites propios (prefijo "app:"). Persistente: vale con varias instancias.
+model RateLimit {
+  id          String @id
+  key         String @unique
+  count       Int
+  lastRequest BigInt
+
+  @@map("rate_limit")
+}
+
+// ───────────── Empresas y acceso ─────────────
+
+enum MembershipStatus {
+  ACTIVE
+  SUSPENDED
+  REVOKED
+}
+
+enum JoinRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum GrantSubject {
+  MEMBER
+  POSITION
+  DEPARTMENT
+}
+
+enum GrantScope {
+  OWN
+  DEPARTMENTS
+  COMPANY
+}
+
+enum GrantEffect {
+  ALLOW
+  DENY
+}
+
+model Company {
+  id            String   @id @default(uuid(7))
+  code          String   @unique
+  joinCode      String   @unique
+  legalName     String
+  tradeName     String
+  rfc           String?
+  fiscalAddress String?
+  activity      String?
+  description   String?
+  email         String?
+  phone         String?
+  logoKey       String?
+  timezone      String   @default("America/Mexico_City")
+  // Null solo en empresas cerradas cuyo fundador eliminó su cuenta.
+  ownerId       String?
+  owner         User?    @relation("CompanyOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  closedAt      DateTime?
+  closedReason  String?
+  version       Int      @default(1)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  settings      CompanySettings?
+  modules       CompanyModule[]
+  memberships   Membership[]
+  joinRequests  JoinRequest[]
+  departments   Department[]
+  positions     Position[]
+  employees     Employee[]
+  grants        Grant[]
+  counters      Counter[]
+
+  @@map("company")
+}
+
+model CompanySettings {
+  companyId               String    @id
+  company                 Company   @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  docExpiryLeadDays       Int       @default(30)
+  contractExpiryLeadDays  Int       @default(30)
+  maintenanceLeadDays     Int       @default(7)
+  requiredEmployeeFields  String[]  @default(["firstName", "lastName", "birthDate", "curp", "rfc", "nss", "phone", "address"])
+  requiredDocTypes        String[]  @default(["INE_FRONT", "INE_BACK", "CSF", "BIRTH_CERT", "PROOF_ADDRESS", "CURP_DOC", "NSS_DOC"])
+  // Política de retención: años mínimos tras la baja antes de permitir anonimizar. null = no configurada.
+  retentionYearsAfterExit Int?
+  aiEnabled               Boolean   @default(false)
+  aiAcknowledgedAt        DateTime?
+  aiAcknowledgedById      String?
+  aiMonthlyRequestLimit   Int       @default(300)
+  aiDailyUserLimit        Int       @default(40)
+  // Presupuesto mensual de tokens (entrada + salida) por empresa, mes civil en la zona de la empresa.
+  aiMonthlyTokenLimit     Int       @default(2000000)
+  version                 Int       @default(1)
+  updatedAt               DateTime  @updatedAt
+
+  @@map("company_settings")
+}
+
+model CompanyModule {
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  module      String
+  enabled     Boolean
+  updatedAt   DateTime @updatedAt
+  updatedById String?
+
+  @@id([companyId, module])
+  @@map("company_module")
+}
+
+// Secuencias por empresa para códigos visibles (EMP-0001, OC-0001...).
+model Counter {
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  key       String
+  value     Int     @default(0)
+
+  @@id([companyId, key])
+  @@map("counter")
+}
+
+model Membership {
+  id                 String           @id @default(uuid(7))
+  companyId          String
+  company            Company          @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  userId             String
+  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status             MembershipStatus @default(ACTIVE)
+  // Acceso completo operativo: solo lo concede/revoca el propietario. No transfiere propiedad.
+  fullAccess         Boolean          @default(false)
+  fullAccessById     String?
+  fullAccessAt       DateTime?
+  employeeId         String?
+  employee           Employee?        @relation(fields: [companyId, employeeId], references: [companyId, id], onDelete: NoAction)
+  mutedAlertTypes    String[]         @default([])
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  grants Grant[]
+
+  @@unique([companyId, userId])
+  @@unique([companyId, id])
+  @@unique([companyId, employeeId])
+  @@index([userId])
+  @@map("membership")
+}
+
+model JoinRequest {
+  id           String            @id @default(uuid(7))
+  companyId    String
+  company      Company           @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  userId       String
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status       JoinRequestStatus @default(PENDING)
+  message      String?
+  decidedById  String?
+  decidedAt    DateTime?
+  decisionNote String?
+  employeeId   String?
+  createdAt    DateTime          @default(now())
+
+  // Unicidad de PENDING por (companyId,userId): índice parcial en migración SQL.
+  @@unique([companyId, id])
+  @@index([companyId, status])
+  @@index([userId])
+  @@map("join_request")
+}
+
+model Grant {
+  id                 String       @id @default(uuid(7))
+  companyId          String
+  company            Company      @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  subjectType        GrantSubject
+  membershipId       String?
+  membership         Membership?  @relation(fields: [companyId, membershipId], references: [companyId, id], onDelete: NoAction)
+  positionId         String?
+  position           Position?    @relation(fields: [companyId, positionId], references: [companyId, id], onDelete: NoAction)
+  departmentId       String?
+  department         Department?  @relation("GrantSubjectDept", fields: [companyId, departmentId], references: [companyId, id], onDelete: NoAction)
+  permission         String
+  effect             GrantEffect  @default(ALLOW)
+  scope              GrantScope   @default(COMPANY)
+  scopeDepartmentIds String[]     @default([])
+  createdById        String
+  createdAt          DateTime     @default(now())
+
+  @@index([companyId, membershipId])
+  @@index([companyId, positionId])
+  @@index([companyId, departmentId])
+  @@map("grant")
+}
+
+// ───────────── Estructura ─────────────
+
+model Department {
+  id          String       @id @default(uuid(7))
+  companyId   String
+  company     Company      @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  name        String
+  description String?
+  parentId    String?
+  parent      Department?  @relation("DeptTree", fields: [companyId, parentId], references: [companyId, id], onDelete: NoAction)
+  children    Department[] @relation("DeptTree")
+  sortOrder   Int          @default(0)
+  archivedAt  DateTime?
+  version     Int          @default(1)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  positions     Position[]
+  employees     Employee[]
+  grantsAsGroup Grant[]               @relation("GrantSubjectDept")
+  assignments   AssignmentHistory[]
+  announcements AnnouncementDepartment[]
+
+  @@unique([companyId, id])
+  @@index([companyId, archivedAt])
+  @@map("department")
+}
+
+model Position {
+  id               String     @id @default(uuid(7))
+  companyId        String
+  company          Company    @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  departmentId     String
+  department       Department @relation(fields: [companyId, departmentId], references: [companyId, id], onDelete: NoAction)
+  title            String
+  description      String?
+  // Jerarquía de autoridad: el supervisor de una persona son los ocupantes del puesto padre.
+  parentPositionId String?
+  parent           Position?  @relation("PosTree", fields: [companyId, parentPositionId], references: [companyId, id], onDelete: NoAction)
+  children         Position[] @relation("PosTree")
+  // Plazas previstas; null = sin límite. Se usa para mostrar vacantes.
+  headcount        Int?
+  sortOrder        Int        @default(0)
+  archivedAt       DateTime?
+  version          Int        @default(1)
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  employees     Employee[]
+  grantsAsGroup Grant[]
+  assignments   AssignmentHistory[]
+
+  @@unique([companyId, id])
+  @@index([companyId, departmentId])
+  @@map("position")
+}
+
+// ───────────── Personal ─────────────
+
+enum EmployeeStatus {
+  ACTIVE
+  SUSPENDED
+  OFFBOARDING
+  FORMER
+}
+
+enum TerminationReason {
+  RESIGNATION
+  DISMISSAL
+  CONTRACT_END
+  OTHER
+}
+
+model Employee {
+  id           String         @id @default(uuid(7))
+  companyId    String
+  company      Company        @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  number       String
+  // Cuenta vinculada (opcional). Borrar la cuenta no borra el expediente.
+  userId       String?
+  firstName    String
+  lastName     String         @default("")
+  birthDate    DateTime?      @db.Date
+  email        String?
+  phone        String?
+  status       EmployeeStatus @default(ACTIVE)
+  departmentId String?
+  department   Department?    @relation(fields: [companyId, departmentId], references: [companyId, id], onDelete: NoAction)
+  positionId   String?
+  position     Position?      @relation(fields: [companyId, positionId], references: [companyId, id], onDelete: NoAction)
+  hireDate     DateTime?      @db.Date
+  // Campos sensibles cifrados (AES-256-GCM) + índices ciegos HMAC por empresa para búsqueda exacta.
+  curpEnc      String?
+  rfcEnc       String?
+  nssEnc       String?
+  addressEnc   String?
+  curpBidx     String?
+  rfcBidx      String?
+  nssBidx      String?
+  legalHold    Boolean        @default(false)
+  anonymizedAt DateTime?
+  createdById  String?
+  version      Int            @default(1)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  membership   Membership?
+  periods      EmploymentPeriod[]
+  assignments  AssignmentHistory[]
+  notes        EmployeeNote[]
+  contracts    EmployeeContract[]
+  bankAccounts BankAccount[]
+  documents    Document[]
+
+  @@unique([companyId, id])
+  @@unique([companyId, number])
+  @@unique([companyId, curpBidx])
+  @@unique([companyId, userId])
+  @@index([companyId, status])
+  @@index([companyId, departmentId])
+  @@index([companyId, lastName, firstName])
+  @@map("employee")
+}
+
+model EmploymentPeriod {
+  id                String             @id @default(uuid(7))
+  companyId         String
+  employeeId        String
+  employee          Employee           @relation(fields: [companyId, employeeId], references: [companyId, id], onDelete: NoAction)
+  number            Int
+  startDate         DateTime           @db.Date
+  endDate           DateTime?          @db.Date
+  terminationReason TerminationReason?
+  terminationNotes  String?
+  closedById        String?
+  createdAt         DateTime           @default(now())
+
+  // Un solo periodo abierto por expediente: índice parcial en migración SQL.
+  @@unique([employeeId, number])
+  @@index([companyId, endDate])
+  @@map("employment_period")
+}
+
+model AssignmentHistory {
+  id           String      @id @default(uuid(7))
+  companyId    String
+  employeeId   String
+  employee     Employee    @relation(fields: [companyId, employeeId], references: [companyId, id], onDelete: NoAction)
+  departmentId String?
+  department   Department? @relation(fields: [companyId, departmentId], references: [companyId, id], onDelete: NoAction)
+  positionId   String?
+  position     Position?   @relation(fields: [companyId, positionId], references: [companyId, id], onDelete: NoAction)
+  startedAt    DateTime    @default(now())
+  endedAt      DateTime?
+  actorId      String?
+  reason       String?
+
+  @@index([companyId, employeeId])
+  @@index([companyId, departmentId])
+  @@map("assignment_history")
+}
+
+model EmployeeNote {
+  id         String   @id @default(uuid(7))
+  companyId  String
+  employeeId String
+  employee   Employee @relation(fields: [companyId, employeeId], references: [companyId, id], onDelete: NoAction)
+  kind       String   @default("NOTE") // NOTE | INCIDENT
+  body       String
+  occurredOn DateTime? @db.Date
+  authorId   String
+  createdAt  DateTime @default(now())
+
+  @@index([companyId, employeeId])
+  @@map("employee_note")
+}
+
+model EmployeeContract {
+  id         String    @id @default(uuid(7))
+  companyId  String
+  employeeId String
+  employee   Employee  @relation(fields: [companyId, employeeId], references: [companyId, id], onDelete: NoAction)
+  title      String
+  startDate  DateTime  @db.Date
+  endDate    DateTime? @db.Date
+  notes      String?
+  archivedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  documents Document[]
+
+  @@unique([companyId, id])
+  @@index([companyId, endDate])
+  @@map("employee_contract")
+}
+
+model BankAccount {
+  id          String    @id @default(uuid(7))
+  companyId   String
+  employeeId  String
+  employee    Employee  @relation(fields: [companyId, employeeId], references: [companyId, id], onDelete: NoAction)
+  holderName  String
+  clabeEnc    String
+  clabeLast4  String
+  bankCode    String
+  bankName    String?
+  isCurrent   Boolean   @default(true)
+  createdById String
+  createdAt   DateTime  @default(now())
+  replacedAt  DateTime?
+
+  @@index([companyId, employeeId])
+  @@map("bank_account")
+}
+
+// ───────────── Documentos ─────────────
+
+enum ScanStatus {
+  PENDING
+  CLEAN
+  INFECTED
+  UNSCANNED
+}
+
+model Folder {
+  id           String    @id @default(uuid(7))
+  companyId    String
+  name         String
+  parentId     String?
+  parent       Folder?   @relation("FolderTree", fields: [companyId, parentId], references: [companyId, id], onDelete: NoAction)
+  children     Folder[]  @relation("FolderTree")
+  confidential Boolean   @default(false)
+  archivedAt   DateTime?
+  createdAt    DateTime  @default(now())
+
+  documents Document[]
+
+  @@unique([companyId, id])
+  @@map("folder")
+}
+
+model Document {
+  id               String            @id @default(uuid(7))
+  companyId        String
+  folderId         String?
+  folder           Folder?           @relation(fields: [companyId, folderId], references: [companyId, id], onDelete: NoAction)
+  title            String
+  category         String?
+  // Tipo de documento de expediente (INE_FRONT, CSF...) cuando aplica.
+  docType          String?
+  confidential     Boolean           @default(false)
+  // Vínculo a una sola entidad (CHECK en SQL). FK reales en lugar de entityType/entityId.
+  employeeId       String?
+  employee         Employee?         @relation(fields: [companyId, employeeId], references: [companyId, id], onDelete: NoAction)
+  supplierId       String?
+  supplier         Supplier?         @relation(fields: [companyId, supplierId], references: [companyId, id], onDelete: NoAction)
+  purchaseId       String?
+  purchase         Purchase?         @relation(fields: [companyId, purchaseId], references: [companyId, id], onDelete: NoAction)
+  assetId          String?
+  asset            Asset?            @relation(fields: [companyId, assetId], references: [companyId, id], onDelete: NoAction)
+  maintenanceId    String?
+  maintenance      MaintenanceRecord? @relation(fields: [companyId, maintenanceId], references: [companyId, id], onDelete: NoAction)
+  contractId       String?
+  contract         EmployeeContract? @relation(fields: [companyId, contractId], references: [companyId, id], onDelete: NoAction)
+  expiresOn        DateTime?         @db.Date
+  currentVersionNo Int               @default(0)
+  versionCount     Int               @default(0)
+  archivedAt       DateTime?
+  createdById      String
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  versions DocumentVersion[]
+
+  @@unique([companyId, id])
+  @@index([companyId, folderId])
+  @@index([companyId, employeeId])
+  @@index([companyId, expiresOn])
+  @@map("document")
+}
+
+model DocumentVersion {
+  id            String     @id @default(uuid(7))
+  companyId     String
+  documentId    String
+  document      Document   @relation(fields: [companyId, documentId], references: [companyId, id], onDelete: NoAction)
+  number        Int
+  storageKey    String     @unique
+  originalName  String
+  mime          String
+  size          Int
+  sha256        String
+  scanStatus    ScanStatus @default(PENDING)
+  restoredFrom  Int?
+  uploadedById  String
+  createdAt     DateTime   @default(now())
+  // Archivo eliminado por política de retención; se conservan metadatos mínimos.
+  purgedAt      DateTime?
+
+  @@unique([documentId, number])
+  @@map("document_version")
+}
+
+// ───────────── Auditoría ─────────────
+
+model AuditLog {
+  id           String   @id @default(uuid(7))
+  companyId    String?
+  actorUserId  String?
+  actorLabel   String
+  action       String
+  module       String
+  entityType   String?
+  entityId     String?
+  // Departamento afectado (para aplicar alcance al consultar auditoría de personal).
+  departmentId String?
+  result       String   @default("SUCCESS")
+  summary      String?
+  changes      Json?
+  sensitive    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  @@index([companyId, createdAt])
+  @@index([companyId, entityType, entityId])
+  @@index([companyId, module, createdAt])
+  @@map("audit_log")
+}
+
+// ───────────── Inventario y activos ─────────────
+
+enum TrackingModel {
+  STOCK
+  ASSET
+}
+
+enum MovementType {
+  INITIAL
+  IN
+  OUT
+  ADJUST
+  REVERSAL
+  RECEIPT
+  RECEIPT_REVERSAL
+}
+
+enum AssetStatus {
+  ACTIVE
+  IN_MAINTENANCE
+  OUT_OF_SERVICE
+  SOLD
+  DISPOSED
+}
+
+enum UsageKind {
+  NONE
+  KM
+  HOURS
+}
+
+model Category {
+  id           String        @id @default(uuid(7))
+  companyId    String
+  name         String
+  tracking     TrackingModel
+  parentId     String?
+  parent       Category?     @relation("CatTree", fields: [companyId, parentId], references: [companyId, id], onDelete: NoAction)
+  children     Category[]    @relation("CatTree")
+  suggestedKey String?
+  hidden       Boolean       @default(false)
+  archivedAt   DateTime?
+  createdAt    DateTime      @default(now())
+
+  items         Item[]
+  assets        Asset[]
+  purchaseLines PurchaseLine[]
+
+  @@unique([companyId, id])
+  @@unique([companyId, suggestedKey])
+  @@map("category")
+}
+
+model Item {
+  id          String    @id @default(uuid(7))
+  companyId   String
+  code        String
+  name        String
+  categoryId  String
+  category    Category  @relation(fields: [companyId, categoryId], references: [companyId, id], onDelete: NoAction)
+  unit        String
+  // Saldo consultable; se deriva del libro de movimientos y nunca se edita directamente.
+  quantity    Decimal   @default(0) @db.Decimal(18, 4)
+  minQuantity Decimal?  @db.Decimal(18, 4)
+  location    String?
+  notes       String?
+  archivedAt  DateTime?
+  version     Int       @default(1)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  movements     StockMovement[]
+  purchaseLines PurchaseLine[]
+  prices        PriceRecord[]
+
+  @@unique([companyId, id])
+  @@unique([companyId, code])
+  @@index([companyId, name])
+  @@map("item")
+}
+
+model StockMovement {
+  id             String        @id @default(uuid(7))
+  companyId      String
+  itemId         String
+  item           Item          @relation(fields: [companyId, itemId], references: [companyId, id], onDelete: NoAction)
+  type           MovementType
+  quantity       Decimal       @db.Decimal(18, 4)
+  balanceAfter   Decimal       @db.Decimal(18, 4)
+  reason         String?
+  actorId        String
+  idempotencyKey String?
+  reversesId     String?       @unique
+  receiptLineId  String?
+  createdAt      DateTime      @default(now())
+
+  @@unique([companyId, id])
+  @@unique([companyId, idempotencyKey])
+  @@index([companyId, itemId, createdAt])
+  @@map("stock_movement")
+}
+
+model Asset {
+  id               String      @id @default(uuid(7))
+  companyId        String
+  code             String
+  name             String
+  categoryId       String
+  category         Category    @relation(fields: [companyId, categoryId], references: [companyId, id], onDelete: NoAction)
+  serial           String?
+  brand            String?
+  model            String?
+  year             Int?
+  status           AssetStatus @default(ACTIVE)
+  acquiredOn       DateTime?   @db.Date
+  costAmount       Decimal?    @db.Decimal(18, 2)
+  costCurrency     String?
+  supplierId       String?
+  supplier         Supplier?   @relation(fields: [companyId, supplierId], references: [companyId, id], onDelete: NoAction)
+  warrantyUntil    DateTime?   @db.Date
+  location         String?
+  usageKind        UsageKind   @default(NONE)
+  // Lectura efectiva = lectura del medidor + desplazamiento acumulado por reemplazos de medidor.
+  readingOffset    Decimal     @default(0) @db.Decimal(14, 1)
+  currentReading   Decimal?    @db.Decimal(14, 1)
+  readingAt        DateTime?
+  soldOn           DateTime?   @db.Date
+  saleAmount       Decimal?    @db.Decimal(18, 2)
+  saleCurrency     String?
+  responsibleLabel String?
+  notes            String?
+  receiptLineId    String?
+  version          Int         @default(1)
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  events       AssetEvent[]
+  readings     UsageReading[]
+  plans        MaintenancePlan[]
+  maintenances MaintenanceRecord[]
+  documents    Document[]
+
+  @@unique([companyId, id])
+  @@unique([companyId, code])
+  @@index([companyId, status])
+  @@index([companyId, serial])
+  @@map("asset")
+}
+
+model AssetEvent {
+  id         String       @id @default(uuid(7))
+  companyId  String
+  assetId    String
+  asset      Asset        @relation(fields: [companyId, assetId], references: [companyId, id], onDelete: NoAction)
+  type       String
+  fromStatus AssetStatus?
+  toStatus   AssetStatus?
+  notes      String?
+  actorId    String
+  createdAt  DateTime     @default(now())
+
+  @@index([companyId, assetId, createdAt])
+  @@map("asset_event")
+}
+
+enum ReadingKind {
+  NORMAL
+  CORRECTION
+  METER_REPLACEMENT
+}
+
+model UsageReading {
+  id             String      @id @default(uuid(7))
+  companyId      String
+  assetId        String
+  asset          Asset       @relation(fields: [companyId, assetId], references: [companyId, id], onDelete: NoAction)
+  kind           ReadingKind @default(NORMAL)
+  rawValue       Decimal     @db.Decimal(14, 1)
+  effectiveValue Decimal     @db.Decimal(14, 1)
+  readAt         DateTime
+  notes          String?
+  actorId        String
+  createdAt      DateTime    @default(now())
+
+  @@index([companyId, assetId, readAt])
+  @@map("usage_reading")
+}
+
+// ───────────── Proveedores y compras ─────────────
+
+enum PurchaseStatus {
+  DRAFT
+  CONFIRMED
+  PARTIAL
+  RECEIVED
+  CANCELLED
+}
+
+enum LineKind {
+  STOCK
+  ASSET
+  SERVICE
+}
+
+model Supplier {
+  id          String    @id @default(uuid(7))
+  companyId   String
+  code        String
+  name        String
+  legalName   String?
+  rfc         String?
+  email       String?
+  phone       String?
+  contactName String?
+  address     String?
+  categories  String?
+  notes       String?
+  archivedAt  DateTime?
+  version     Int       @default(1)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  purchases    Purchase[]
+  assets       Asset[]
+  documents    Document[]
+  prices       PriceRecord[]
+  maintenances MaintenanceRecord[]
+
+  @@unique([companyId, id])
+  @@unique([companyId, code])
+  @@index([companyId, name])
+  @@map("supplier")
+}
+
+model Purchase {
+  id               String         @id @default(uuid(7))
+  companyId        String
+  code             String
+  supplierId       String
+  supplier         Supplier       @relation(fields: [companyId, supplierId], references: [companyId, id], onDelete: NoAction)
+  // Snapshot del nombre del proveedor al confirmar.
+  supplierName     String
+  orderedOn        DateTime       @db.Date
+  reference        String?
+  currency         String         @default("MXN")
+  pricesIncludeTax Boolean        @default(false)
+  status           PurchaseStatus @default(DRAFT)
+  total            Decimal        @default(0) @db.Decimal(18, 2)
+  notes            String?
+  createdById      String
+  confirmedAt      DateTime?
+  cancelledAt      DateTime?
+  version          Int            @default(1)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  lines     PurchaseLine[]
+  receipts  Receipt[]
+  documents Document[]
+
+  @@unique([companyId, id])
+  @@unique([companyId, code])
+  @@index([companyId, status])
+  @@map("purchase")
+}
+
+model PurchaseLine {
+  id          String    @id @default(uuid(7))
+  companyId   String
+  purchaseId  String
+  purchase    Purchase  @relation(fields: [companyId, purchaseId], references: [companyId, id], onDelete: NoAction)
+  lineNo      Int
+  kind        LineKind
+  itemId      String?
+  item        Item?     @relation(fields: [companyId, itemId], references: [companyId, id], onDelete: NoAction)
+  categoryId  String?
+  category    Category? @relation(fields: [companyId, categoryId], references: [companyId, id], onDelete: NoAction)
+  description String
+  unit        String
+  quantity    Decimal   @db.Decimal(18, 4)
+  unitPrice   Decimal   @db.Decimal(18, 4)
+  amount      Decimal   @db.Decimal(18, 2)
+  receivedQty Decimal   @default(0) @db.Decimal(18, 4)
+
+  receiptLines ReceiptLine[]
+  price        PriceRecord?
+
+  @@unique([companyId, id])
+  @@unique([purchaseId, lineNo])
+  @@map("purchase_line")
+}
+
+model Receipt {
+  id             String    @id @default(uuid(7))
+  companyId      String
+  purchaseId     String
+  purchase       Purchase  @relation(fields: [companyId, purchaseId], references: [companyId, id], onDelete: NoAction)
+  number         Int
+  idempotencyKey String
+  receivedOn     DateTime  @db.Date
+  notes          String?
+  actorId        String
+  reversedAt     DateTime?
+  reversedById   String?
+  reversalReason String?
+  createdAt      DateTime  @default(now())
+
+  lines ReceiptLine[]
+
+  @@unique([companyId, id])
+  @@unique([companyId, idempotencyKey])
+  @@unique([purchaseId, number])
+  @@map("receipt")
+}
+
+model ReceiptLine {
+  id         String       @id @default(uuid(7))
+  companyId  String
+  receiptId  String
+  receipt    Receipt      @relation(fields: [companyId, receiptId], references: [companyId, id], onDelete: NoAction)
+  lineId     String
+  line       PurchaseLine @relation(fields: [companyId, lineId], references: [companyId, id], onDelete: NoAction)
+  quantity   Decimal      @db.Decimal(18, 4)
+  movementId String?      @unique
+
+  @@unique([companyId, id])
+  @@map("receipt_line")
+}
+
+// Precio observado en una operación real (primera recepción de la línea).
+model PriceRecord {
+  id               String       @id @default(uuid(7))
+  companyId        String
+  supplierId       String
+  supplier         Supplier     @relation(fields: [companyId, supplierId], references: [companyId, id], onDelete: NoAction)
+  itemId           String?
+  item             Item?        @relation(fields: [companyId, itemId], references: [companyId, id], onDelete: NoAction)
+  purchaseLineId   String       @unique
+  purchaseLine     PurchaseLine @relation(fields: [companyId, purchaseLineId], references: [companyId, id], onDelete: NoAction)
+  description      String
+  unit             String
+  currency         String
+  pricesIncludeTax Boolean
+  unitPrice        Decimal      @db.Decimal(18, 4)
+  observedOn       DateTime     @db.Date
+  voidedAt         DateTime?
+
+  @@unique([companyId, purchaseLineId])
+  @@index([companyId, itemId, observedOn])
+  @@map("price_record")
+}
+
+// ───────────── Mantenimiento ─────────────
+
+enum MaintenanceType {
+  PREVENTIVE
+  CORRECTIVE
+}
+
+enum MaintenanceStatus {
+  SCHEDULED
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+model MaintenancePlan {
+  id                 String    @id @default(uuid(7))
+  companyId          String
+  assetId            String
+  asset              Asset     @relation(fields: [companyId, assetId], references: [companyId, id], onDelete: NoAction)
+  name               String
+  intervalDays       Int?
+  intervalReading    Decimal?  @db.Decimal(14, 1)
+  leadReading        Decimal?  @db.Decimal(14, 1)
+  lastServiceOn      DateTime? @db.Date
+  lastServiceReading Decimal?  @db.Decimal(14, 1)
+  nextDueOn          DateTime? @db.Date
+  nextDueReading     Decimal?  @db.Decimal(14, 1)
+  active             Boolean   @default(true)
+  version            Int       @default(1)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  records MaintenanceRecord[]
+
+  @@unique([companyId, id])
+  @@index([companyId, nextDueOn])
+  @@map("maintenance_plan")
+}
+
+model MaintenanceRecord {
+  id            String            @id @default(uuid(7))
+  companyId     String
+  code          String
+  assetId       String
+  asset         Asset             @relation(fields: [companyId, assetId], references: [companyId, id], onDelete: NoAction)
+  planId        String?
+  plan          MaintenancePlan?  @relation(fields: [companyId, planId], references: [companyId, id], onDelete: NoAction)
+  type          MaintenanceType
+  status        MaintenanceStatus @default(SCHEDULED)
+  scheduledOn   DateTime?         @db.Date
+  performedOn   DateTime?         @db.Date
+  description   String
+  costAmount    Decimal?          @db.Decimal(18, 2)
+  costCurrency  String?
+  supplierId    String?
+  supplier      Supplier?         @relation(fields: [companyId, supplierId], references: [companyId, id], onDelete: NoAction)
+  workshop      String?
+  notes         String?
+  reading       Decimal?          @db.Decimal(14, 1)
+  createdById   String
+  completedById String?
+  version       Int               @default(1)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  documents Document[]
+
+  @@unique([companyId, id])
+  @@unique([companyId, code])
+  @@index([companyId, assetId])
+  @@index([companyId, status])
+  @@map("maintenance_record")
+}
+
+// ───────────── Avisos, alertas, notificaciones ─────────────
+
+model Announcement {
+  id          String    @id @default(uuid(7))
+  companyId   String
+  title       String
+  body        String
+  // true = toda la empresa; false = solo departamentos listados.
+  allCompany  Boolean   @default(true)
+  authorId    String
+  authorLabel String
+  publishedAt DateTime  @default(now())
+  archivedAt  DateTime?
+  version     Int       @default(1)
+  updatedAt   DateTime  @updatedAt
+
+  departments AnnouncementDepartment[]
+
+  @@unique([companyId, id])
+  @@index([companyId, publishedAt])
+  @@map("announcement")
+}
+
+model AnnouncementDepartment {
+  companyId      String
+  announcementId String
+  announcement   Announcement @relation(fields: [companyId, announcementId], references: [companyId, id], onDelete: Cascade)
+  departmentId   String
+  department     Department   @relation(fields: [companyId, departmentId], references: [companyId, id], onDelete: NoAction)
+
+  @@id([announcementId, departmentId])
+  @@map("announcement_department")
+}
+
+enum AlertStatus {
+  OPEN
+  RESOLVED
+}
+
+model Alert {
+  id                 String      @id @default(uuid(7))
+  companyId          String
+  type               String
+  // Clave estable de la condición (tipo:entidad). Única entre alertas no resueltas (índice parcial SQL).
+  dedupeKey          String
+  status             AlertStatus @default(OPEN)
+  severity           String      @default("warning")
+  title              String
+  link               String
+  module             String
+  // Permiso y departamento con que se filtra la visibilidad al consultar.
+  requiredPermission String
+  departmentId       String?
+  employeeId         String?
+  firstSeenAt        DateTime    @default(now())
+  lastSeenAt         DateTime    @default(now())
+  resolvedAt         DateTime?
+
+  notifications Notification[]
+
+  @@unique([companyId, id])
+  @@index([companyId, status])
+  @@map("alert")
+}
+
+model Notification {
+  id           String    @id @default(uuid(7))
+  companyId    String
+  userId       String
+  alertId      String?
+  alert        Alert?    @relation(fields: [companyId, alertId], references: [companyId, id], onDelete: NoAction)
+  kind         String
+  title        String
+  link         String?
+  readAt       DateTime?
+  dismissedAt  DateTime?
+  snoozedUntil DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@unique([userId, alertId])
+  @@index([companyId, userId, createdAt])
+  @@map("notification")
+}
+
+// ───────────── Tareas persistentes e IA ─────────────
+
+enum JobStatus {
+  QUEUED
+  RUNNING
+  DONE
+  FAILED
+}
+
+model Job {
+  id          String    @id @default(uuid(7))
+  type        String
+  companyId   String?
+  payload     Json      @default("{}")
+  dedupeKey   String?   @unique
+  status      JobStatus @default(QUEUED)
+  runAt       DateTime  @default(now())
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(5)
+  lockedBy    String?
+  lockedAt    DateTime?
+  lastError   String?
+  finishedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([status, runAt])
+  @@map("job")
+}
+
+model WorkerHeartbeat {
+  workerId String   @id
+  seenAt   DateTime @default(now())
+
+  @@map("worker_heartbeat")
+}
+
+// Transferencia de propiedad: la inicia el propietario y la acepta el sucesor (ambos con reautenticación).
+enum TransferStatus {
+  PENDING
+  ACCEPTED
+  CANCELLED
+  EXPIRED
+}
+
+model OwnershipTransfer {
+  id         String         @id @default(uuid(7))
+  companyId  String
+  fromUserId String
+  toUserId   String
+  status     TransferStatus @default(PENDING)
+  expiresAt  DateTime
+  decidedAt  DateTime?
+  createdAt  DateTime       @default(now())
+
+  @@index([companyId, status])
+  @@index([toUserId, status])
+  @@map("ownership_transfer")
+}
+
+// Registro de eliminaciones sin datos personales (huellas HMAC). Permite reaplicar tras restaurar una copia.
+model ErasureLog {
+  id        String   @id @default(uuid(7))
+  kind      String // ACCOUNT | EMPLOYEE
+  subject   String // huella HMAC del usuario o id del expediente
+  companyId String?
+  summary   Json?
+  createdAt DateTime @default(now())
+
+  @@index([kind, subject])
+  @@map("erasure_log")
+}
+
+// Registro mínimo de uso de IA: sin preguntas ni respuestas.
+model AiUsage {
+  id           String   @id @default(uuid(7))
+  companyId    String
+  userId       String
+  // pending = reserva activa; el resto son intentos terminados (todos cuentan para la cuota).
+  status       String
+  toolCalls    Int      @default(0)
+  inputTokens  Int      @default(0)
+  outputTokens Int      @default(0)
+  durationMs   Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  @@index([companyId, createdAt])
+  @@index([companyId, userId, createdAt])
+  @@map("ai_usage")
+}

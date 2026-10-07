@@ -1,0 +1,41 @@
+# Versión de prueba en Render (plan gratuito). Los valores secretos se capturan en el panel de Render, nunca aquí.
+services:
+  - type: web
+    name: easywork-prueba
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm ci --include=dev && npm run cloud:build
+    startCommand: npm run cloud:start
+    healthCheckPath: /entrar
+    envVars:
+      - { key: NODE_ENV, value: production }
+      - { key: DEPLOY_STAGE, value: beta }
+      - { key: WORKER_IN_PROCESS, value: "true" }
+      - { key: IP_HEADER, value: true-client-ip }
+      - { key: STORAGE_DRIVER, value: s3 }
+      - { key: MAIL_DRIVER, value: smtp }
+      - { key: FILE_SCAN, value: "off" }
+      - { key: FILE_SCAN_REQUIRED, value: "false" }
+      - { key: AI_PROVIDER, value: none }
+      - { key: APP_URL, sync: false }
+      - { key: BETTER_AUTH_URL, sync: false }
+      - { key: DATABASE_URL, sync: false }
+      - { key: MIGRATE_DATABASE_URL, sync: false }
+      - { key: APP_DB_PASSWORD, sync: false }
+      - { key: BETTER_AUTH_SECRET, sync: false }
+      - { key: ENCRYPTION_KEYS, sync: false }
+      - { key: ENCRYPTION_KEY_CURRENT, sync: false }
+      - { key: BLIND_INDEX_KEY, sync: false }
+      - { key: S3_ENDPOINT, sync: false }
+      - { key: S3_REGION, sync: false }
+      - { key: S3_BUCKET, sync: false }
+      - { key: S3_ACCESS_KEY_ID, sync: false }
+      - { key: S3_SECRET_ACCESS_KEY, sync: false }
+      - { key: SMTP_URL, sync: false }
+      - { key: MAIL_FROM, sync: false }
+      - { key: HEALTH_TOKEN, sync: false }
+      - { key: OPERATOR_NAME, sync: false }
+      - { key: OPERATOR_KIND, sync: false }
+      - { key: OPERATOR_LOCATION, sync: false }
+      - { key: OPERATOR_EMAIL, sync: false }

@@ -1,0 +1,41 @@
+# Compila los instaladores de escritorio en runners nativos (macOS y Windows).
+# Sin secretos de firma configurados produce binarios SIN FIRMAR (aptos para pruebas, no para distribución).
+# Para firmar: APPLE_CERTIFICATE/APPLE_SIGNING_IDENTITY/APPLE_ID/APPLE_PASSWORD/APPLE_TEAM_ID (notarización)
+# y para Windows un certificado de firma de código (ver docs/RELEASE.md).
+name: desktop
+on:
+  workflow_dispatch:
+    inputs:
+      api_url:
+        description: URL HTTPS del servicio
+        required: true
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults: { run: { working-directory: apps/client } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npx vite build
+        env: { VITE_API_URL: "${{ inputs.api_url }}" }
+      - run: npx tauri build
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: easywork-${{ matrix.os }}
+          path: |
+            apps/client/src-tauri/target/release/bundle/dmg/*.dmg
+            apps/client/src-tauri/target/release/bundle/nsis/*.exe
+            apps/client/src-tauri/target/release/bundle/msi/*.msi

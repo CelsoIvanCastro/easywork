@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Permisos mínimos: ventana principal y eventos básicos. Sin sistema de archivos ni shell.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

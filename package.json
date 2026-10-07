@@ -1,0 +1,72 @@
+{
+  "name": "easywork",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "0.131.0",
+    "@prisma/adapter-pg": "7.10.0",
+    "@prisma/client": "7.10.0",
+    "aws4fetch": "1.0.20",
+    "better-auth": "1.7.7",
+    "file-type": "22.1.1",
+    "lucide-react": "1.52.0",
+    "next": "16.3.8",
+    "nodemailer": "10.0.15",
+    "pg": "8.23.1",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "server-only": "0.0.1",
+    "sharp": "0.35.5",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.4",
+    "@types/nodemailer": "8.0.2",
+    "@types/pg": "8.23.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "embedded-postgres": "18.4.0-beta.17",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.3.8",
+    "playwright-core": "1.63.0",
+    "prisma": "7.10.0",
+    "tsx": "4.23.15",
+    "typescript": "6.0.3",
+    "vitest": "5.0.3"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "prisma@7.10.0": true,
+    "unrs-resolver@1.12.2": true,
+    "@embedded-postgres/darwin-arm64@18.4.0-beta.17": true,
+    "@prisma/engines@7.10.0": true
+  },
+  "overrides": {
+    "mysql2": "3.24.5"
+  },
+  "scripts": {
+    "setup": "tsx scripts/setup.ts",
+    "db": "tsx scripts/db.ts",
+    "db:migrate": "prisma migrate deploy",
+    "db:migrate:dev": "prisma migrate dev",
+    "generate": "prisma generate",
+    "seed": "tsx --conditions=react-server scripts/seed.ts",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "worker": "tsx --conditions=react-server src/worker/index.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:e2e": "tsx scripts/e2e.ts",
+    "backup": "tsx scripts/backup.ts",
+    "restore": "tsx scripts/restore.ts",
+    "keys:rotate": "tsx --conditions=react-server scripts/rotate-keys.ts",
+    "cloud:build": "prisma generate && next build",
+    "cloud:start": "prisma migrate deploy && tsx scripts/cloud-db.ts && next start"
+  }
+}

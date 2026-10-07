@@ -1,0 +1,128 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-06",
+  "title": "Design System: EasyWork",
+  "extensions": {
+    "colorMeta": {
+      "accent": {
+        "displayName": "Grafito verdoso",
+        "canonical": "#303d35",
+        "tonalRamp": [
+          "#1b2620",
+          "#243229",
+          "#303d35",
+          "#426247",
+          "#33503a",
+          "#e5ece1"
+        ]
+      },
+      "ink": {
+        "displayName": "Grafito cálido y piedra",
+        "canonical": "#252a27",
+        "tonalRamp": [
+          "#252a27",
+          "#626962",
+          "#6f756d",
+          "#858c82",
+          "#deded5",
+          "#e9e8e1",
+          "#efeee8",
+          "#f6f5f1"
+        ]
+      },
+      "ok": {
+        "displayName": "Correcto",
+        "canonical": "#2e6b43",
+        "tonalRamp": [
+          "#2e6b43",
+          "#b9d4bd",
+          "#e3efe4"
+        ]
+      },
+      "warn": {
+        "displayName": "Aviso",
+        "canonical": "#7a4e0e",
+        "tonalRamp": [
+          "#7a4e0e",
+          "#e3cc9c",
+          "#f5ead3"
+        ]
+      },
+      "bad": {
+        "displayName": "Crítico",
+        "canonical": "#a0342a",
+        "tonalRamp": [
+          "#a0342a",
+          "#e7b9b2",
+          "#f6e2de"
+        ]
+      }
+    },
+    "shadows": {
+      "panel": "0 1px 2px rgba(37,42,39,0.05)",
+      "overlay": "0 12px 32px rgba(37,42,39,0.12), 0 2px 6px rgba(37,42,39,0.05)"
+    },
+    "focus": {
+      "ring": "0 0 0 2px #fff, 0 0 0 4px #426247",
+      "field": "border #426247 + ring"
+    },
+    "motion": {
+      "fast": "120ms",
+      "default": "160ms",
+      "ease": "cubic-bezier(0.2, 0.7, 0.2, 1)",
+      "reducedMotion": "sin transiciones"
+    },
+    "breakpoints": {
+      "tableStack": "640px",
+      "mobileShell": "980px",
+      "split": "1080px"
+    },
+    "components": {
+      "button-primary": {
+        "bg": "#303d35",
+        "fg": "#fff",
+        "radius": "9px",
+        "height": "44px; CTA de bloque 48px"
+      },
+      "folio": {
+        "bg": "#f0e8da",
+        "fg": "#252a27",
+        "font": "13px/500 tabular"
+      },
+      "badge": {
+        "shape": "píldora con punto",
+        "tones": "ok/warn/bad/info"
+      },
+      "input": {
+        "border": "#858c82",
+        "radius": "9px",
+        "height": "44px"
+      },
+      "nav-item": {
+        "current": "fondo salvia #e5ece1, texto grafito 600"
+      }
+    },
+    "narrative": {
+      "northStar": "Estudio en marfil y piedra: sobrio, cálido y fácil.",
+      "overview": "Marfil, piedra, salvia suave y grafito; reemplaza la dirección azul. Una acción principal por vista.",
+      "keyCharacteristics": [
+        "Una sola acción grafito por vista",
+        "Salvia solo para selección y enlaces",
+        "Acceso en dos columnas con alternativas separadas por divisor",
+        "CSS compartido web/escritorio/móvil"
+      ],
+      "dos": [
+        "Texto en cada estado",
+        "Folio visible",
+        "Alternativas con menos peso que el CTA"
+      ],
+      "donts": [
+        "Azul",
+        "Eyebrows en mayúsculas",
+        "Tarjeta dentro de tarjeta",
+        "Glass",
+        "Colores fuera de tokens"
+      ]
+    }
+  }
+}

@@ -1,0 +1,49 @@
+# Releases de las apps
+
+Arquitectura: el servidor Next.js (web + API `/api/v1`) es la única fuente de verdad. Las apps empaquetan el cliente
+`apps/client` (React + Vite, recursos locales) y hablan con la API por HTTPS con un token bearer revocable guardado en el
+almacén seguro del sistema. Ningún binario contiene base de datos, claves de cifrado, SMTP ni proveedor de IA.
+
+Identificador **provisional**: `com.celsocastro.easywork` (`apps/client/capacitor.config.ts`, `src-tauri/tauri.conf.json`).
+Confírmalo antes de la primera subida: no se puede cambiar después en las tiendas.
+
+## Requisitos previos (una vez)
+- Servicio en producción con HTTPS y dominio propio (`APP_URL`, `CLIENT_ORIGINS` por defecto ya incluye los orígenes de las apps).
+- `cd apps/client && npm ci`.
+- Android: JDK 21, Android SDK (API 36). iOS/Mac App Store: **Xcode** (App Store) y cuenta Apple Developer. Escritorio: Rust (`rustup`).
+
+## Compilación del cliente (siempre primero)
+```bash
+cd apps/client
+VITE_API_URL=https://TU-DOMINIO npx vite build      # falla a propósito si la URL no es https
+```
+
+## Android (Google Play)
+```bash
+npx cap sync android
+cd android && ./gradlew bundleRelease               # → app/build/outputs/bundle/release/app-release.aab (sin firmar)
+```
+Firma: crea tu clave de subida (guárdala fuera del repositorio y con copia de seguridad):
+`keytool -genkeypair -v -keystore ~/easywork-upload.jks -alias upload -keyalg RSA -keysize 4096 -validity 9125`
+y firma con `jarsigner` o configura `signingConfigs` leyendo la contraseña de variables de entorno. Activa **Play App Signing**.
+Prueba local: `./gradlew assembleDebug` con `VITE_API_URL=http://10.0.2.2:3000 VITE_INSECURE_TEST_BUILD=true` (HTTP solo en la variante debug y solo hacia 10.0.2.2).
+
+## iOS y iPadOS (App Store)
+Requiere Xcode. `npx cap sync ios && npx cap open ios`; en Xcode: equipo de firma, añadir `App/PrivacyInfo.xcprivacy` al target,
+versión/build, *Product → Archive → Distribute App*.
+
+## macOS
+- Descarga directa: `npx tauri build` → `.app` y `.dmg`. Para distribuir: firma con *Developer ID Application* + notarización
+  (variables `APPLE_*`, ver workflow). Un `.dmg` sin firma solo sirve para pruebas internas.
+- Mac App Store: requiere sandbox (`com.apple.security.app-sandbox`, `com.apple.security.network.client`) y perfil de Mac App Store;
+  se prepara en `src-tauri/entitlements.mas.plist` con firma *Apple Distribution*.
+
+## Windows
+`.github/workflows/desktop.yml` (ejecución manual) compila NSIS (`.exe`) y MSI en un runner Windows. Para distribuir sin advertencias
+de SmartScreen hace falta un certificado de firma de código (OV/EV) o Azure Trusted Signing.
+
+## Versionado y compatibilidad
+Versión de app en `package.json`, `tauri.conf.json` y Gradle/Xcode. La API es `/api/v1`: los cambios incompatibles irán a `/api/v2`
+manteniendo `v1` mientras existan versiones instaladas que la usen. Las apps de tienda se actualizan por su tienda; la descarga
+directa de macOS/Windows se actualizará con el actualizador firmado de Tauri cuando exista un dominio para publicar el manifiesto
+(pendiente: requiere clave de firma de actualizaciones y URL).
