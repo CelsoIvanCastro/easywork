@@ -2,7 +2,7 @@
 
 ## Preparación comprobada el 26 de octubre de 2026
 
-- Destino de la primera entrega: Windows. El workflow `desktop` genera NSIS/MSI, comprueba disponibilidad del backend antes de compilar y falla si no se produjeron instaladores. Ejecución 40382756480 iniciada; falta comprobar resultado e instalación real.
+- Destino de la primera entrega: Windows. El workflow `desktop` genera NSIS/MSI, comprueba disponibilidad del backend antes de compilar y falla si no se produjeron instaladores. Ejecución 40383089389 correcta, commit 0be2e45: NSIS y MSI x64 descargados, firmas de formato y SHA-256 comprobados. Falta instalación real.
 - Antes de configurar el servicio: `npm run beta:check -- --env-file .local/nube-variables.txt`. Solo muestra nombres de variables pendientes, nunca secretos. Después: `npm run beta:check -- --url https://DIRECCION-REAL --online`.
 - Render Free bloquea SMTP (25/465/587). La configuración usa `MAIL_DRIVER=brevo` y `BREVO_API_KEY` para enviar por HTTPS. Esta clave es distinta de la clave SMTP; requiere remitente verificado y una prueba real de entrega.
 - Alternativa a Neon: Aiven PostgreSQL Free, sin caducidad fija, 1 GB de disco y máximo de 20 conexiones. `PG_POOL_MAX=5` limita el grupo de conexiones de cada proceso. Comprobar TLS y certificado del proveedor al conectarlo. El plan puede suspender servicios inactivos y no incluye garantía de disponibilidad.

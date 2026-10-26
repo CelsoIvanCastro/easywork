@@ -1,15 +1,15 @@
 # Estado del proyecto
 
-## 2026-10-26 — Servicio externo publicado; entrega Windows en curso
+## 2026-10-26 — Servicio externo publicado e instaladores Windows generados
 
 - Servicio HTTPS activo: https://easywork-tytruby32.onrender.com. `/entrar` y `/api/salud/listo` responden 200; base, almacenamiento y worker disponibles. CORS admite los orígenes de Tauri y rechaza un origen externo. HSTS y CSP presentes. Aún falta registro/verificación de correo real y uso desde otro equipo.
 - GitHub privado `TyTruby32/easywork` conectado a Render solo para ese repositorio, con autorización. Aiven PostgreSQL Free operativo, TLS verificado, tres migraciones y rol `easywork_app` sin UPDATE de auditoría. Base sin caducidad fija; Render Postgres temporal descartado. Los planes gratuitos no garantizan disponibilidad.
 - Bucket B2 privado y cifrado, clave restringida a ese bucket; prueba real de escritura/lectura correcta y acceso anónimo rechazado. Se corrigió el 501 de B2 con `If-None-Match`: solo B2 usa HEAD previo y UUID nuevas de servidor; no equivale a escritura condicional atómica.
 - Brevo configurado por HTTPS con clave solo transaccional, remitente verificado y consulta real HTTP 200. Entrega al buzón aún pendiente de comprobar; el remitente Gmail no equivale a dominio propio autenticado. Secretos guardados únicamente en configuración privada local y Render, nunca en GitHub ni clientes.
-- Windows: workflow 40382756480 iniciado con backend HTTPS real; pendiente resultado e instalación en un equipo Windows. No compartir los instaladores antiguos que apuntan a localhost.
+- Windows: workflow 40383089389 correcto (commit 0be2e45), instaladores NSIS/MSI generados para x64 contra el backend HTTPS real, descargados y con SHA-256 registrados. Se corrigió resolución de tipos React en componentes compartidos para compilaciones aisladas. Pendiente instalación en un equipo Windows. No compartir los instaladores antiguos que apuntan a localhost.
 - Evidencia local: tipos web/cliente y build correctos; lint sin errores (4 avisos existentes); 88/88 pruebas y 15/15 pasos E2E aislados correctos. Tras la adaptación B2, 7/7 pruebas enfocadas correctas. No confundir estas pruebas con instalación Windows ni entrega de correo real.
 - Límites: ClamAV todavía no está disponible; documentos permanecen en cuarentena, protección obligatoria. IA deshabilitada. Render Free puede dormir y su disco es efímero; falta validar recuperación externa y persistencia externa del registro de borrado antes de tratarlo como producción empresarial. Revisión legal pendiente. Ningún plan de pago contratado.
-- Siguiente: verificar registro/correo, terminar instalador Windows y probarlo. No declarar todas las funciones listas mientras sigan estos requisitos pendientes.
+- Siguiente: verificar registro/correo e instalar/probar en Windows. No declarar todas las funciones listas mientras sigan estos requisitos pendientes.
 
 ## Estado anterior — 2026-10-06 (etapa 3: rediseño premium)
 
