@@ -11,12 +11,17 @@ on:
       api_url:
         description: URL HTTPS del servicio
         required: true
+      platform:
+        description: Plataforma a compilar
+        type: choice
+        default: windows
+        options: [windows, macos, both]
 jobs:
   build:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest]
+        os: ${{ fromJSON(inputs.platform == 'both' && '["windows-latest","macos-latest"]' || inputs.platform == 'macos' && '["macos-latest"]' || '["windows-latest"]') }}
     runs-on: ${{ matrix.os }}
     defaults: { run: { working-directory: apps/client } }
     steps:
