@@ -43,7 +43,8 @@ class LocalStorage implements Storage {
   }
 }
 
-class S3Storage implements Storage {
+export class S3Storage implements Storage {
+  private isBackblaze = new URL(process.env.S3_ENDPOINT!).hostname.endsWith(".backblazeb2.com");
   private client = import("aws4fetch").then(
     ({ AwsClient }) => new AwsClient({ accessKeyId: process.env.S3_ACCESS_KEY_ID!, secretAccessKey: process.env.S3_SECRET_ACCESS_KEY!, region: process.env.S3_REGION, service: "s3" }),
   );
@@ -54,7 +55,17 @@ class S3Storage implements Storage {
     return r;
   }
   async put(key: string, data: Buffer, contentType: string) {
-    await this.call(this.url(safeKey(key)), { method: "PUT", body: new Uint8Array(data), headers: { "content-type": contentType, "if-none-match": "*" } });
+    const url = this.url(safeKey(key));
+    if (this.isBackblaze) {
+      // B2 devuelve 501 con If-None-Match en PUT. Las claves UUID nuevas se generan
+      // exclusivamente en el servidor por cada versión; HEAD evita reutilizarlas por error.
+      // Esta comprobación no equivale a un PUT condicional atómico.
+      const existing = await this.call(url, { method: "HEAD" });
+      if (existing.status !== 404) throw new Error("La clave de almacenamiento ya existe");
+    }
+    const headers: Record<string, string> = { "content-type": contentType };
+    if (!this.isBackblaze) headers["if-none-match"] = "*";
+    await this.call(url, { method: "PUT", body: new Uint8Array(data), headers });
   }
   async get(key: string) {
     const r = await this.call(this.url(safeKey(key)));
