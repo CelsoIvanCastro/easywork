@@ -2,13 +2,13 @@
 
 ## Preparación comprobada el 26 de octubre de 2026
 
-- Destino de la primera entrega: Windows. El workflow `desktop` genera NSIS/MSI, comprueba disponibilidad del backend antes de compilar y falla si no se produjeron instaladores. No se ha ejecutado aún en GitHub.
+- Destino de la primera entrega: Windows. El workflow `desktop` genera NSIS/MSI, comprueba disponibilidad del backend antes de compilar y falla si no se produjeron instaladores. Ejecución 40382756480 iniciada; falta comprobar resultado e instalación real.
 - Antes de configurar el servicio: `npm run beta:check -- --env-file .local/nube-variables.txt`. Solo muestra nombres de variables pendientes, nunca secretos. Después: `npm run beta:check -- --url https://DIRECCION-REAL --online`.
 - Render Free bloquea SMTP (25/465/587). La configuración usa `MAIL_DRIVER=brevo` y `BREVO_API_KEY` para enviar por HTTPS. Esta clave es distinta de la clave SMTP; requiere remitente verificado y una prueba real de entrega.
 - Alternativa a Neon: Aiven PostgreSQL Free, sin caducidad fija, 1 GB de disco y máximo de 20 conexiones. `PG_POOL_MAX=5` limita el grupo de conexiones de cada proceso. Comprobar TLS y certificado del proveedor al conectarlo. El plan puede suspender servicios inactivos y no incluye garantía de disponibilidad.
 - No usar Render Postgres Free para la empresa: caduca a los 30 días. No se creó esa base temporal.
 - `render.yaml` conserva análisis obligatorio. Si no existe ClamAV en la dirección configurada, los archivos se quedan en cuarentena. No declarar documentos listos ni desactivar esta protección para poner datos laborales reales.
-- Base de datos, almacenamiento privado, correo real, copias/restauración externas y backend publicado siguen pendientes de conexión/verificación. Los secretos locales no se han enviado a ningún servicio. No compartir los instaladores locales antiguos: apuntan a localhost.
+- Servidor publicado en https://easywork-tytruby32.onrender.com, conectado a Aiven/B2/Brevo con secretos privados en Render. Disponibilidad, TLS de base, almacenamiento privado real y CORS verificados. Pendientes entrega real de correo, restauración externa y uso desde Windows. No compartir los instaladores locales antiguos: apuntan a localhost.
 
 Referencias: [Render Free](https://render.com/docs/free), [Aiven Free](https://aiven.io/docs/products/postgresql/concepts/pg-free-tier), [Brevo HTTPS](https://developers.brevo.com/reference/send-transac-email).
 

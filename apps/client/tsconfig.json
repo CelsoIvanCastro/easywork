@@ -2,7 +2,11 @@
   "compilerOptions": {
     "target": "ES2022", "lib": ["dom", "dom.iterable", "es2023"], "module": "esnext", "moduleResolution": "bundler",
     "jsx": "react-jsx", "strict": true, "skipLibCheck": true, "noEmit": true, "isolatedModules": true, "types": ["vite/client"],
-    "paths": { "@shared/*": ["../../src/lib/*"] }
+    "paths": {
+      "@shared/*": ["../../src/lib/*"],
+      "react": ["./node_modules/@types/react/index.d.ts"],
+      "react/*": ["./node_modules/@types/react/*"]
+    }
   },
   "include": ["src", "../../src/lib/catalogs.ts", "../../src/lib/api-contract.ts", "../../src/lib/ui/auth.tsx"]
 }
