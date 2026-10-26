@@ -5,7 +5,7 @@ import { env } from "./env";
 
 // Sesión en UTC: las columnas timestamp guardan UTC y now() debe coincidir.
 const g = globalThis as unknown as { prisma?: PrismaClient };
-export const db = g.prisma ?? new PrismaClient({ adapter: new PrismaPg({ connectionString: env.databaseUrl, options: "-c TimeZone=UTC" }) });
+export const db = g.prisma ?? new PrismaClient({ adapter: new PrismaPg({ connectionString: env.databaseUrl, max: env.databasePoolMax, options: "-c TimeZone=UTC" }) });
 if (!env.isProd) g.prisma = db;
 
 export type Tx = Prisma.TransactionClient;

@@ -1,4 +1,14 @@
-# Estado del proyecto — 2026-10-06 (etapa 3: rediseño premium)
+# Estado del proyecto
+
+## 2026-10-26 — Preparación para acceso externo y Windows (en curso)
+
+- Aún no existe una entrega comprobada para una empresa externa: no hay backend remoto conectado ni instalador Windows generado. Render ya tiene sesión iniciada; GitHub CLI autorizado y repositorio privado `TyTruby32/easywork` identificado. Aiven registrado, pendiente verificación de correo/conexión. Render Postgres de 30 días descartado, sin crear.
+- Comprobación local de esta fecha: tipos web/cliente correctos, compilación web correcta tras los cambios, lint sin errores (4 avisos ya existentes), 88/88 pruebas correctas (incluidas 4 nuevas de Brevo) y 15/15 pasos E2E con datos sintéticos en `easywork_test`, buzón y almacenamiento aislados. Esto no acredita correo/S3/Windows reales.
+- Cambios para la entrega: puerta de comprobación `beta:check` sin imprimir secretos; workflow Windows NSIS/MSI con verificación de backend; buzón E2E configurable; correo Brevo por HTTPS (SMTP bloqueado en Render Free); 4 pruebas de contrato de correo correctas; máximo de 5 conexiones PostgreSQL por proceso por defecto.
+- Las variables externas de `.local/nube-variables.txt` siguen pendientes. No se modificaron las claves de cifrado existentes. No se publicaron datos ni código ni se contrataron planes de pago. ClamAV obligatorio en la configuración propuesta: hasta tener analizador, archivos en cuarentena.
+- Para reanudar: completar GitHub/Aiven/Brevo/Backblaze, validar privilegios y TLS de la base, conectar los servicios y desplegar servidor HTTPS; comprobar registro/correo/archivos y recuperación; ejecutar workflow Windows y probar el instalador. Ver `docs/RELEASE.md`.
+
+## Estado anterior — 2026-10-06 (etapa 3: rediseño premium)
 
 ## Etapa 3 — rediseño marfil/piedra/salvia/grafito (PROMPT_03)
 - Implementado: nuevo `globals.css` (tokens en DESIGN.md; azul eliminado), acceso compartido web/cliente (`src/lib/ui/auth.tsx`: entrar, registro, recuperar, restablecer, verificar, 2FA) con CTA único y alternativa separada por divisor; navegación con selección salvia; Mis empresas y Mi cuenta como `.standalone` (crear/unirse plegados, abiertos si no hay empresas); colores fijos retirados.

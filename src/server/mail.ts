@@ -7,6 +7,11 @@ export type Mail = { to: string; subject: string; text: string };
 
 // Proveedor intercambiable. "local" guarda los mensajes en .local/mailbox (no envía nada real).
 export async function sendMail(mail: Mail): Promise<void> {
+  if (env.mailDriver === "brevo") {
+    const { sendViaBrevo } = await import("./brevo");
+    await sendViaBrevo(mail, env.mailFrom, process.env.BREVO_API_KEY);
+    return;
+  }
   if (env.mailDriver === "smtp") {
     const { createTransport } = await import("nodemailer");
     await createTransport(process.env.SMTP_URL).sendMail({ from: env.mailFrom, ...mail });

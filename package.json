@@ -66,6 +66,7 @@
     "backup": "tsx scripts/backup.ts",
     "restore": "tsx scripts/restore.ts",
     "keys:rotate": "tsx --conditions=react-server scripts/rotate-keys.ts",
+    "beta:check": "node scripts/beta-check.mjs",
     "cloud:build": "prisma generate && next build",
     "cloud:start": "prisma migrate deploy && tsx scripts/cloud-db.ts && next start"
   }

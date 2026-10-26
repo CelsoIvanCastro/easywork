@@ -7,7 +7,7 @@ import { createOTP } from "@better-auth/utils/otp";
 import { base32 } from "@better-auth/utils/base32";
 
 const BASE = process.env.E2E_URL ?? "http://localhost:3000";
-const MAILBOX = ".local/mailbox";
+const MAILBOX = process.env.E2E_MAILBOX_DIR ?? ".local/mailbox";
 const run = Date.now().toString(36);
 const PASSWORD = `E2e-${run}-Segura!`;
 let step = 0;

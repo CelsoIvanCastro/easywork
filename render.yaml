@@ -10,13 +10,17 @@ services:
     healthCheckPath: /entrar
     envVars:
       - { key: NODE_ENV, value: production }
-      - { key: DEPLOY_STAGE, value: beta }
+      - { key: DEPLOY_STAGE, value: production }
       - { key: WORKER_IN_PROCESS, value: "true" }
       - { key: IP_HEADER, value: true-client-ip }
       - { key: STORAGE_DRIVER, value: s3 }
-      - { key: MAIL_DRIVER, value: smtp }
-      - { key: FILE_SCAN, value: "off" }
-      - { key: FILE_SCAN_REQUIRED, value: "false" }
+      - { key: MAIL_DRIVER, value: brevo }
+      # Sin clamd disponible, las cargas quedan en cuarentena; no se entregan sin analizar.
+      - { key: FILE_SCAN, value: clamav }
+      - { key: FILE_SCAN_REQUIRED, value: "true" }
+      - { key: CLAMAV_HOST, value: "127.0.0.1" }
+      - { key: CLAMAV_PORT, value: "3310" }
+      - { key: PG_POOL_MAX, value: "5" }
       - { key: AI_PROVIDER, value: none }
       - { key: APP_URL, sync: false }
       - { key: BETTER_AUTH_URL, sync: false }
@@ -32,7 +36,7 @@ services:
       - { key: S3_BUCKET, sync: false }
       - { key: S3_ACCESS_KEY_ID, sync: false }
       - { key: S3_SECRET_ACCESS_KEY, sync: false }
-      - { key: SMTP_URL, sync: false }
+      - { key: BREVO_API_KEY, sync: false }
       - { key: MAIL_FROM, sync: false }
       - { key: HEALTH_TOKEN, sync: false }
       - { key: OPERATOR_NAME, sync: false }
